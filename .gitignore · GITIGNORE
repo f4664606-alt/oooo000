@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+*.log
+coins_list_cache.json
+sector_members.json
+*credentials*.json
+service-account*.json
+.DS_Store
