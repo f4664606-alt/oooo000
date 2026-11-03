@@ -1,0 +1,58 @@
+# -*- coding: utf-8 -*-
+"""
+🧭 مساعد F1 — يضيف لكل توصية سطر "حكم القطاع" من محلل القطاعات على Render.
+
+الخطوات (3 إضافات صغيرة في ملف F1، بعد لصق هذا الملف أو دالته في F1 أو في خلية قبله على Colab):
+
+(1) غيّر الرابط والمفتاح أدناه.
+
+(2) داخل scan() في F1، بعد سطر  )[:5]  الذي ينهي final_sorted وقبل  elapsed = time.time() - start  أضف:
+
+        # 🧭 حكم القطاع (من محلل القطاعات)
+        for coin in final_sorted:
+            line, data = await fetch_sector_line(self.session, coin['symbol'])
+            coin['sector_line'] = line
+
+    (استخدم self.session وليس session: المتغير session داخل scan() هو جلسة التداول وليس الشبكة)
+
+(3) في _format_telegram، بعد السطر الذي يضيف whale_label أضف:
+
+            if coin.get('sector_line'):  lines.append(coin['sector_line'])
+
+    وفي _print_results داخل show()، بعد سطر طباعة whale_label أضف:
+
+            if coin.get('sector_line'):  print(f"  {coin['sector_line']}")
+
+إذا فشل الاتصال أو كان السيرفر نائماً أكثر من المهلة يرجع نص فارغ، فتظهر التوصية كما هي بلا سطر القطاع.
+"""
+import asyncio
+import aiohttp
+
+SECTOR_API_URL = "https://YOUR-APP.onrender.com"   # رابط خدمتك على Render (بدون / في النهاية)
+SECTOR_API_KEY = ""                                  # نفس SCAN_KEY إن ضبطته على Render، وإلا اتركه فارغاً
+
+
+async def fetch_sector_line(session, symbol, retries=4, building_wait=20):
+    """
+    يرجع (السطر، البيانات الكاملة). عند أي فشل يرجع ("", None) دون أن يوقف F1.
+    المهلة 70 ثانية للطلب الأول لأن Render المجاني قد يكون نائماً.
+    status 202 = قاعدة القطاعات قيد البناء بعد النوم، فنعيد المحاولة.
+    """
+    base = symbol.split('/')[0].upper()
+    params = {"symbol": base, "format": "json", "src": "f1"}
+    if SECTOR_API_KEY:
+        params["key"] = SECTOR_API_KEY
+    for attempt in range(retries):
+        try:
+            async with session.get(f"{SECTOR_API_URL}/coin", params=params,
+                                   timeout=aiohttp.ClientTimeout(total=70)) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    return data.get("line", ""), data
+                if r.status == 202:
+                    await asyncio.sleep(building_wait)
+                    continue
+                return "", None          # 404/403/503 ... لا حكم
+        except Exception:
+            await asyncio.sleep(5)
+    return "", None
