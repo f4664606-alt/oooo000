@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: sector-analyzer
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 app:app
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false          # تُدخل من لوحة Render فقط — لا تضعها في الكود أبداً
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        sync: false          # اختياري: لتفعيل الذاكرة وتسجيل فحوص F1
+      - key: GOOGLE_CREDS_JSON
+        sync: false          # اختياري: محتوى ملف مفتاح Google كاملاً
+      - key: SCAN_KEY
+        sync: false          # اختياري: يحمي /scan و/coin (الرابط يصبح ?key=...)
+      - key: CACHE_DIR
+        value: /tmp
